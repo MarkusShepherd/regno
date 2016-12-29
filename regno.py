@@ -275,11 +275,62 @@ class Curse(Card):
     supply = 30
     victory_points = -1
 
+class Adventurer(Card):
+    types = frozenset(['action'])
+    _cost = 6
+    supply = 10
+
+    def play(self):
+        super().play()
+
+        treasures = []
+        others = []
+
+        while len(treasures) < 2:
+            card = self.player.draw()
+
+            if card is None:
+                LOGGER.warning('deck and discard pile are empty, no more cards to draw')
+                break
+
+            LOGGER('Adventurer revealed %s', card.__name__)
+
+            if 'treasure' in card.types:
+                treasures.append(card)
+            else:
+                others.append(card)
+
+        self.player.hand.extend(treasures)
+        self.player.discard_pile.extend(treasures)
+
 class Chancellor(Card):
+    def __init__(self, player, game, discard_deck=True):
+        super().__init__(player, game)
+        self.discard_deck = discard_deck
+
     types = frozenset(['action'])
     _cost = 3
     supply = 10
     money = 2
+
+    def play(self):
+        super().play()
+
+        if self.discard_deck:
+            self.player.discard_pile.extend(self.player.deck)
+            self.player.deck = []
+
+class CouncilRoom(Card):
+    types = frozenset(['action'])
+    _cost = 5
+    supply = 10
+    buys = 1
+    cards = 4
+
+    def play(self):
+        for player in self.game.players:
+            if player is not self.player:
+                player.draw_hand()
 
 class Festival(Card):
     types = frozenset(['action'])
@@ -355,6 +406,58 @@ class Mine(Card):
             self.player.hand.append(gained)
             LOGGER.info('gained %s', gained.__name__)
 
+class Moneylender(Card):
+    types = frozenset(['action'])
+    _cost = 4
+    supply = 10
+
+    def play(self):
+        try:
+            self.player.hand.remove(Copper)
+        except ValueError:
+            LOGGER.info('no Copper to trash')
+            return
+
+        self.game.trash.append(Copper)
+        self.money = 3
+        super().play()
+
+class Remodel(Card):
+    def __init__(self, player, game, to_trash=None, to_gain=None):
+        super().__init__(player, game)
+        self.to_trash = to_trash
+        self.to_gain = to_gain
+        if isinstance(self.to_gain, type):
+            self.to_gain = [self.to_gain]
+
+    types = frozenset(['action'])
+    _cost = 4
+    supply = 10
+
+    def play(self):
+        super().play()
+
+        if not self.to_trash:
+            # TODO choose randomly
+            return
+
+        self.player.hand.remove(self.to_trash)
+        self.game.trash.append(self.to_trash)
+        money = self.to_trash(self.player, self.game).cost + 2
+
+        candidates = list(self.to_gain)
+
+        if not candidates:
+            candidates = [card for card, stack in self.game.supply.items()
+                          if stack and card(self.player, self.game).cost <= money]
+            candidates = sorted(candidates, key=lambda card: -card(self.player, self.game).cost)
+
+        for candidate in candidates:
+            card = candidate(self.player, self.game)
+            if card.cost <= money and self.game.supply.get(candidate):
+                card.gain()
+                return
+
 class Smithy(Card):
     types = frozenset(['action'])
     _cost = 4
@@ -392,6 +495,33 @@ class Woodcutter(Card):
     supply = 10
     buys = 1
     money = 2
+
+class Workshop(Card):
+    def __init__(self, player, game, to_gain=None):
+        super().__init__(player, game)
+        self.to_gain = to_gain
+        if isinstance(self.to_gain, type):
+            self.to_gain = [self.to_gain]
+
+    types = frozenset(['action'])
+    _cost = 3
+    supply = 10
+
+    def play(self):
+        super().play()
+
+        candidates = list(self.to_gain)
+
+        if not candidates:
+            candidates = [card for card, stack in self.game.supply.items()
+                          if stack and card(self.player, self.game).cost <= 4]
+            candidates = sorted(candidates, key=lambda card: -card(self.player, self.game).cost)
+
+        for candidate in candidates:
+            card = candidate(self.player, self.game)
+            if card.cost <= 4 and self.game.supply.get(candidate):
+                card.gain()
+                return
 
 class Strategy(object):
     def action(self, player, game):
@@ -496,6 +626,28 @@ class BigMoneyWitch(BigMoney, Smarter):
             return Witch(player, game)
 
         return super().buy(player, game)
+
+class Gardener(Smarter):
+    def buy(self, player, game):
+        LOGGER.info('player has %d buy(s) and %d money', player.buys, player.money)
+
+        if player.money == 5 and game.supply.get(Festival) and player.counter[Festival] < 5:
+            return Festival(player, game)
+        if player.money == 5 and not game.supply.get(Festival) \
+                and game.supply.get(Market) \
+                and player.counter[Festival] + player.counter[Market] < 5:
+            return Market(player, game)
+        if 4 <= player.money <= 5 and game.supply.get(Gardens):
+            return Gardens(player, game)
+        if player.money == 3 and game.supply.get(Woodcutter):
+            return Woodcutter(player, game)
+
+        candidate = super().buy(player, game)
+
+        if (candidate is None or isinstance(candidate, Curse)) and game.supply.get(Copper):
+            return Copper(player, game)
+        else:
+            return candidate
 
 def class_from_path(path):
     parts = path.split('.')
