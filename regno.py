@@ -47,7 +47,7 @@ class Game(object):
         return result
 
     def finished(self):
-        return (self.supply[Province] == 0 or sum(pile == 0 for pile in self.supply.values()) >= 3)
+        return self.supply[Province] == 0 or sum(pile == 0 for pile in self.supply.values()) >= 3
 
     def play(self):
         while not self.finished():
@@ -80,7 +80,7 @@ class Game(object):
         player.spent_money = 0
 
         while player.actions > 0:
-            card = player.strategy.action(player, game)
+            card = player.strategy.action(player, self)
             if card is None:
                 LOGGER.info('no more actions to play')
                 break
@@ -91,7 +91,7 @@ class Game(object):
             card.play()
 
         while len(player.hand) > 0:
-            card = player.strategy.treasure(player, game)
+            card = player.strategy.treasure(player, self)
             if card is None:
                 LOGGER.info('no more treasures to play')
                 break
@@ -102,7 +102,7 @@ class Game(object):
             card.play()
 
         while player.buys > 0:
-            card = player.strategy.buy(player, game)
+            card = player.strategy.buy(player, self)
             if card is None:
                 LOGGER.info('no more cards to buy')
                 break
@@ -214,13 +214,16 @@ class Card(object):
         self.gain()
 
     @property
-    def name(self): return type(self).__name__
+    def name(self):
+        return type(self).__name__
+
     text = None
     types = frozenset()
 
     _cost = 0
     @property
-    def cost(self): return self._cost
+    def cost(self):
+        return self._cost
 
     supply = 0
 
@@ -339,7 +342,7 @@ class Mine(Card):
 
         gainable = [x[0] for x in self.game.supply.items()
                     if x[1] > 0 and 'treasure' in x[0].types
-                        and x[0](self.player, self.game).cost <= money]
+                    and x[0](self.player, self.game).cost <= money]
 
         if self.to_gain:
             gainable = [card for card in gainable if card in self.to_gain]
@@ -403,7 +406,8 @@ class Strategy(object):
 
     def buy(self, player, game):
         LOGGER.info('player has %d buy(s) and %d money', player.buys, player.money)
-        buyable = [x for x in game.supply.items() if x[1] > 0 and x[0](player, game).cost <= player.money]
+        buyable = [x for x in game.supply.items()
+                   if x[1] > 0 and x[0](player, game).cost <= player.money]
         random.shuffle(buyable)
         # LOGGER.info(buyable)
         buyable = sorted(buyable, key=lambda x: -x[0](player, game).cost)
@@ -522,7 +526,7 @@ def parse_args():
 
     return parser.parse_args()
 
-if __name__ == '__main__':
+def main():
     args = parse_args()
 
     LOGGER.addHandler(logging.StreamHandler(sys.stdout))
@@ -547,7 +551,7 @@ if __name__ == '__main__':
                      Chancellor, Festival, Gardens, Laboratory,
                      Market, Smithy, Village, Woodcutter,
                      Mine, Witch],
-                     [strategy() for strategy in strategies])
+                    [strategy() for strategy in strategies])
 
         game.play()
         summary = game.stats
@@ -557,3 +561,6 @@ if __name__ == '__main__':
 
     print('\n\n\n', json.dumps(summaries, indent=4))
     print(json.dumps(stats, indent=4))
+
+if __name__ == '__main__':
+    main()
