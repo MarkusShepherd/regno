@@ -18,9 +18,10 @@ class Game(object):
 
     def __init__(self, supply, strategies):
         self.supply = {card: card.supply for card in supply}
+        strategies = list(strategies)
+        random.shuffle(strategies)
         self.players = [Player('Player #{}'.format(i + 1), self, strategy)
                         for i, strategy in enumerate(strategies)]
-        random.shuffle(self.players)
 
         self.current_round = 0
         self.current_player = 0
@@ -185,7 +186,7 @@ class Player(object):
     def draw_hand(self):
         card = self.draw()
         if card:
-            LOGGER.info('drew card %s to hand', card.__name__)
+            LOGGER.info('player %s drew card %s to hand', self, card.__name__)
             self.hand.append(card)
         else:
             LOGGER.warning('unable to draw card to hand')

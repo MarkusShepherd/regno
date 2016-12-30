@@ -19,10 +19,12 @@ def parse_args():
     """parse command line arguments"""
 
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('strategies', nargs='+',
+    parser.add_argument('strategies', nargs=4,
                         help='strategies')
+    parser.add_argument('-c', '--card', nargs='*', default=(),
+                        help='card(s) to include in the set')
     parser.add_argument('-s', '--set', default='regno.cards.original',
-                        help='number of games')
+                        help='card collection')
     parser.add_argument('-g', '--games', type=int, default=10,
                         help='number of games')
     parser.add_argument('-v', '--verbose', action='count', default=0,
@@ -38,27 +40,34 @@ def main():
     logging.basicConfig(stream=sys.stdout,
                         level=logging.WARNING - 10 * args.verbose)
 
-    LOGGER.info(args.strategies)
-
     strategies = []
     for strategy in args.strategies:
         cls = class_from_path(strategy)
         if cls is None:
-            raise ValueError('unable to import strategy {}'.format(strategy))
-        strategies.append(cls)
+            LOGGER.warning('unable to import strategy %s', strategy)
+        else:
+            strategies.append(cls)
 
-    LOGGER.info(strategies)
+    LOGGER.info('loaded strategies [%s]', ', '.join(strategy.__name__ for strategy in strategies))
+
+    if len(strategies) != 4:
+        raise ValueError('specify 4 strategies (repeat if necessary)')
+
     stats = {strategy.__name__: 0 for strategy in strategies}
     summaries = []
 
     module = class_from_path(args.set)
-    LOGGER.info(module)
+    LOGGER.info('choosing sets from %s', module.__name__)
+
+    args_cards = list(filter(None, map(class_from_path, args.card)))
+    LOGGER.info('fixed cards for every set: [%s]',
+                ', '.join(sorted(card.__name__ for card in args_cards)))
 
     for i in range(args.games):
         LOGGER.info('#######################################################')
         LOGGER.info('##################### Game #%05d #####################', i + 1)
         LOGGER.info('#######################################################')
-        cards = random_set(module)
+        cards = random_set(module, cards=args_cards)
         LOGGER.info('supply: [%s]', ', '.join(sorted(card.__name__ for card in cards)))
         game = Game(cards, [strategy() for strategy in strategies])
 

@@ -22,7 +22,7 @@ def card_classes(module):
 def random_set(module=None, cards=None, num=10, base=BASESET):
     """creates a set of num cards from the module, with the given cards included, and base added"""
 
-    cards = list(cards) if cards else []
+    cards = list(cards) if cards is not None else []
     remaining = num - len(cards)
 
     if remaining > 0 and module:
