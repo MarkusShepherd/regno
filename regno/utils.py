@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 
+"""utility functions"""
+
 from __future__ import unicode_literals
 
 from importlib import import_module
 
 def class_from_path(path):
+    """load an object from the dotted path"""
+
     parts = path.split('.')
 
     try:

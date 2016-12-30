@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+"""runs a simulation with the given strategies"""
+
 from __future__ import absolute_import, unicode_literals
 
 import argparse
@@ -13,10 +15,11 @@ from .utils import class_from_path
 
 LOGGER = logging.getLogger(__name__)
 
-
 def parse_args():
+    """parse command line arguments"""
+
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('strategies', nargs='*',
+    parser.add_argument('strategies', nargs='+',
                         help='strategies')
     parser.add_argument('-s', '--set', default='regno.cards.original',
                         help='number of games')
@@ -28,16 +31,15 @@ def parse_args():
     return parser.parse_args()
 
 def main():
+    """main function"""
+
     args = parse_args()
 
-    LOGGER.addHandler(logging.StreamHandler(sys.stdout))
-    LOGGER.setLevel(logging.DEBUG if args.verbose >= 2
-                    else logging.INFO if args.verbose == 1
-                    else logging.WARNING)
+    logging.basicConfig(stream=sys.stdout,
+                        level=logging.WARNING - 10 * args.verbose)
 
     LOGGER.info(args.strategies)
 
-    # strategies = (BigMoney, BigMoneySmithy, BigMoneyMiner, BigMoneyFestival)
     strategies = []
     for strategy in args.strategies:
         cls = class_from_path(strategy)
@@ -53,11 +55,11 @@ def main():
     LOGGER.info(module)
 
     for i in range(args.games):
-        LOGGER.info('\n\n#######################################################')
+        LOGGER.info('#######################################################')
         LOGGER.info('##################### Game #%05d #####################', i + 1)
         LOGGER.info('#######################################################')
         cards = random_set(module)
-        LOGGER.info(cards)
+        LOGGER.info('supply: [%s]', ', '.join(sorted(card.__name__ for card in cards)))
         game = Game(cards, [strategy() for strategy in strategies])
 
         game.play()
@@ -66,7 +68,7 @@ def main():
         for winner in summary['winners']:
             stats[winner] += 1
 
-    print('\n\n\n', json.dumps(summaries, indent=4))
+    print(json.dumps(summaries, indent=4))
     print(json.dumps(stats, indent=4))
 
 if __name__ == '__main__':

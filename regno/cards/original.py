@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 
+"""kingdom cards from the base set"""
+
 from __future__ import absolute_import, division, unicode_literals
 
 import logging
+import random
 
 from .base import Card, Copper, Curse
 
@@ -36,6 +39,26 @@ class Adventurer(Card):
         self.player.hand.extend(treasures)
         self.player.discard_pile.extend(treasures)
 
+class Cellar(Card):
+    def __init__(self, player, game, to_discard=()):
+        super().__init__(player, game)
+        self.to_discard = to_discard
+        if isinstance(self.to_discard, type):
+            self.to_discard = (self.to_discard,)
+
+    types = frozenset(['action'])
+    _cost = 2
+    supply = 10
+    actions = 1
+
+    def play(self):
+        for card in self.to_discard:
+            self.player.hand.remove(card)
+            self.player.discard_pile.append(card)
+            self.cards += 1
+
+        super().play()
+
 class Chancellor(Card):
     def __init__(self, player, game, discard_deck=True):
         super().__init__(player, game)
@@ -52,6 +75,24 @@ class Chancellor(Card):
         if self.discard_deck:
             self.player.discard_pile.extend(self.player.deck)
             self.player.deck = []
+
+class Chapel(Card):
+    def __init__(self, player, game, to_trash=()):
+        super().__init__(player, game)
+        self.to_trash = to_trash
+        if isinstance(self.to_trash, type):
+            self.to_trash = (self.to_trash,)
+
+    types = frozenset(['action'])
+    _cost = 2
+    supply = 10
+
+    def play(self):
+        super().play()
+
+        for card in self.to_trash:
+            self.player.hand.remove(card)
+            self.game.trash.append(card)
 
 class CouncilRoom(Card):
     types = frozenset(['action'])
@@ -72,6 +113,25 @@ class Festival(Card):
     actions = 2
     buys = 1
     money = 2
+
+class Feast(Card):
+    def __init__(self, player, game, to_gain=None):
+        super().__init__(player, game)
+        self.to_gain = to_gain
+
+    types = frozenset(['action'])
+    _cost = 4
+    supply = 10
+
+    def play(self):
+        super().play()
+        self.player.in_play.pop()
+        self.game.trash.append(type(self))
+
+        if self.to_gain and self.game.supply.get(self.to_gain):
+            card = self.to_gain(self.player, self.game)
+            if card.cost <= 5:
+                card.gain()
 
 class Gardens(Card):
     types = frozenset(['victory'])
@@ -196,6 +256,41 @@ class Smithy(Card):
     _cost = 4
     supply = 10
     cards = 3
+
+class ThroneRoom(Card):
+    def __init__(self, player, game, to_play=None, kwargs1=None, kwargs2=None):
+        super().__init__(player, game)
+        self.to_play = to_play
+        self.kwargs1 = kwargs1 or {}
+        self.kwargs2 = kwargs2 or {}
+
+    types = frozenset(['action'])
+    _cost = 4
+    supply = 10
+
+    def play(self):
+        super().play()
+
+        if not self.to_play:
+            actions = [card for card in self.player.hand if 'action' in card.types]
+
+            if not actions:
+                return
+
+            random.shuffle(actions)
+
+            self.to_play = actions[0]
+
+            LOGGER.info('selected random action card %s', self.to_play.__name__)
+
+        self.player.hand.remove(self.to_play)
+
+        LOGGER.info('Throne Room plays action card %s twice', self.to_play.__name__)
+
+        self.to_play(self.player, self.game, **self.kwargs1).play()
+        self.to_play(self.player, self.game, **self.kwargs2).play()
+
+        self.player.in_play.pop()
 
 class Village(Card):
     types = frozenset(['action'])

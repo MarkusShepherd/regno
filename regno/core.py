@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+"""core functionality"""
+
 from __future__ import absolute_import, unicode_literals
 
 import logging
@@ -12,6 +14,8 @@ from .cards.base import Copper, Estate, Province
 LOGGER = logging.getLogger(__name__)
 
 class Game(object):
+    """game class"""
+
     def __init__(self, supply, strategies):
         self.supply = {card: card.supply for card in supply}
         self.players = [Player('Player #{}'.format(i + 1), self, strategy)
@@ -26,6 +30,7 @@ class Game(object):
     def stats(self):
         max_points = max(player.victory_points for player in self.players)
         result = {
+            'cards': sorted(card.__name__ for card in self.supply),
             'max_points': max_points,
             'players': [{
                 # 'player': player,
@@ -33,6 +38,7 @@ class Game(object):
                 'strategy': type(player.strategy).__name__,
                 'victory_points': player.victory_points,
                 'leading': player.victory_points == max_points,
+                'deck': {card.__name__: count for card, count in player.counter.items()},
             } for i, player in enumerate(self.players)],
             'current_round': self.current_round + 1,
             'current_player': self.current_player + 1,
@@ -50,7 +56,7 @@ class Game(object):
     def play(self):
         while not self.finished():
             player = self.players[self.current_player]
-            LOGGER.info('\n#######################################################')
+            LOGGER.info('#######################################################')
             LOGGER.info('play round #%d player #%d (%s)',
                         self.current_round + 1, self.current_player + 1,
                         type(player.strategy).__name__)
@@ -115,7 +121,6 @@ class Game(object):
         player.hand = []
         for _ in range(5):
             player.draw_hand()
-        # player.hand = [player.draw() for _ in range(5)]
         player.in_play = []
 
         player.actions = 1
@@ -125,6 +130,8 @@ class Game(object):
         LOGGER.info('player is done with the turn – next one')
 
 class Player(object):
+    """player class"""
+
     def __init__(self, name, game, strategy):
         self.name = name
         self.game = game
@@ -147,9 +154,6 @@ class Player(object):
     @property
     def victory_points(self):
         return sum(card.victory_points for card in self.full_deck)
-        # return (sum(card(self, self.game).victory_points for card
-        #             in self.deck + self.hand + self.discard_pile)
-        #         + sum(card.victory_points for card in self.in_play))
 
     @property
     def money(self):
@@ -187,6 +191,8 @@ class Player(object):
             LOGGER.warning('unable to draw card to hand')
 
 class Strategy(object):
+    """strategy base class"""
+
     def action(self, player, game):
         LOGGER.info('player has %d action(s)', player.actions)
         playable = [card for card in player.hand if 'action' in card.types]
@@ -202,9 +208,7 @@ class Strategy(object):
         buyable = [x for x in game.supply.items()
                    if x[1] > 0 and x[0](player, game).cost <= player.money]
         random.shuffle(buyable)
-        # LOGGER.info(buyable)
         buyable = sorted(buyable, key=lambda x: -x[0](player, game).cost)
-        # LOGGER.info(buyable)
         return buyable[0][0](player, game) if buyable else None
 
     def reaction(self, player, game):

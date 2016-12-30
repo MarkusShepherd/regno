@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+"""sample of strategy implementations"""
+
 from __future__ import absolute_import, unicode_literals
 
 import logging
@@ -12,6 +14,8 @@ from .cards.original import Festival, Gardens, Market, Mine, Smithy, Witch, Wood
 LOGGER = logging.getLogger(__name__)
 
 class Smarter(Strategy):
+    """play random, but a little smarter"""
+
     def action(self, player, game):
         LOGGER.info('player has %d action(s)', player.actions)
         playable = [card for card in player.hand if 'action' in card.types]
@@ -31,6 +35,8 @@ class Smarter(Strategy):
             return candidate
 
 class BigMoney(Strategy):
+    """buy money, nothing else"""
+
     interesting_cards = frozenset((Province, Duchy, Estate, Gold, Silver))
 
     def buy(self, player, game):
@@ -42,6 +48,8 @@ class BigMoney(Strategy):
         return buyable[0][0](player, game) if buyable else None
 
 class BigMoneySmithy(BigMoney, Smarter):
+    """add a few smithies, but otherwise money"""
+
     def buy(self, player, game):
         LOGGER.info('player has %d buy(s) and %d money', player.buys, player.money)
 
@@ -51,6 +59,8 @@ class BigMoneySmithy(BigMoney, Smarter):
         return super().buy(player, game)
 
 class BigMoneyFestival(BigMoneySmithy):
+    """add a few smithies and festivals, but otherwise money"""
+
     def buy(self, player, game):
         LOGGER.info('player has %d buy(s) and %d money', player.buys, player.money)
 
@@ -60,6 +70,8 @@ class BigMoneyFestival(BigMoneySmithy):
         return super().buy(player, game)
 
 class BigMoneyMiner(BigMoney):
+    """buy a few mines to upgrade your money"""
+
     def action(self, player, game):
         LOGGER.info('player has %d action(s)', player.actions)
 
@@ -80,6 +92,8 @@ class BigMoneyMiner(BigMoney):
         return super().buy(player, game)
 
 class BigMoneyWitch(BigMoney, Smarter):
+    """add a few witches, but otherwise money"""
+
     def buy(self, player, game):
         LOGGER.info('player has %d buy(s) and %d money', player.buys, player.money)
 
@@ -89,6 +103,8 @@ class BigMoneyWitch(BigMoney, Smarter):
         return super().buy(player, game)
 
 class Gardener(Smarter):
+    """bloat your deck as much as possible to make points with gardens"""
+
     def buy(self, player, game):
         LOGGER.info('player has %d buy(s) and %d money', player.buys, player.money)
 

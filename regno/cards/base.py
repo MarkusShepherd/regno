@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+"""base cards"""
+
 from __future__ import absolute_import, unicode_literals
 
 import logging
@@ -93,4 +95,4 @@ class Curse(Card):
     supply = 30
     victory_points = -1
 
-BASESET = [Copper, Silver, Gold, Estate, Duchy, Province, Curse]
+BASESET = (Copper, Silver, Gold, Estate, Duchy, Province, Curse)

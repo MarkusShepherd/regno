@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+"""Domionion strategy simulator"""
+
 from __future__ import absolute_import
 
 from . import cards
