@@ -7,7 +7,7 @@ from __future__ import absolute_import, division, unicode_literals
 import logging
 import random
 
-from .base import Card, Copper, Curse
+from .base import Card, Copper, Curse, Gold, Silver
 
 LOGGER = logging.getLogger(__name__)
 
@@ -174,8 +174,14 @@ class Mine(Card):
         super().play()
 
         if not self.to_trash:
-            # TODO test if no treasure in hand
-            return
+            treasures = [card for card in self.player.hand
+                         if 'treasure' in card.types and card(self.player, self.game).cost < 6]
+
+            if not treasures:
+                return
+
+            random.shuffle(treasures)
+            self.to_trash = treasures[0]
 
         self.player.hand.remove(self.to_trash)
         self.game.trash.append(self.to_trash)
@@ -219,7 +225,7 @@ class Remodel(Card):
     def __init__(self, player, game, to_trash=None, to_gain=None):
         super().__init__(player, game)
         self.to_trash = to_trash
-        self.to_gain = to_gain
+        self.to_gain = to_gain or ()
         if isinstance(self.to_gain, type):
             self.to_gain = [self.to_gain]
 
@@ -231,8 +237,9 @@ class Remodel(Card):
         super().play()
 
         if not self.to_trash:
-            # TODO choose randomly
-            return
+            if not self.player.hand:
+                return
+            self.to_trash = random.choice(self.player.hand)
 
         self.player.hand.remove(self.to_trash)
         self.game.trash.append(self.to_trash)
@@ -256,6 +263,51 @@ class Smithy(Card):
     _cost = 4
     supply = 10
     cards = 3
+
+class Thief(Card):
+    def __init__(self, player, game, to_trash=None, to_gain=None):
+        super().__init__(player, game)
+        self.to_trash = to_trash or (Gold, Silver, Copper)
+        self.to_gain = to_gain or frozenset((Gold, Silver))
+
+    types = frozenset(['action', 'attack'])
+    _cost = 4
+    supply = 10
+
+    def play(self):
+        super().play()
+
+        for player in self.game.players:
+            if player is self.player:
+                continue
+
+            cards = list(filter(None, (player.draw(), player.draw())))
+            LOGGER.info('Player %s reveals cards %s', player, cards)
+
+            for target in self.to_trash:
+                try:
+                    cards.remove(target)
+                    break
+                except ValueError:
+                    pass
+            else:
+                treasures = [card for card in cards if 'treasure' in card.types]
+                if treasures:
+                    random.shuffle(treasures)
+                    target = treasures[0]
+                    cards.remove(target)
+                else:
+                    target = None
+
+            if target:
+                if target in self.to_gain:
+                    LOGGER.info('Thief steals card %s', target.__name__)
+                    self.player.discard_pile.append(target)
+                else:
+                    LOGGER.info('Thief trashes card %s', target.__name__)
+                    self.game.trash.append(target)
+
+            player.discard_pile.extend(cards)
 
 class ThroneRoom(Card):
     def __init__(self, player, game, to_play=None, kwargs1=None, kwargs2=None):
